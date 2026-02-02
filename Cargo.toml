@@ -1,0 +1,56 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+exclude = ["crates/zurie_core"]
+
+[workspace.dependencies]
+# Core
+log = "0.4.27"
+anyhow = "1.0.98"
+thiserror = "2.0.11"
+
+# Collections
+indexmap = "2.10.0"
+hashbrown = "0.15"
+slotmap = { version = "1.0", features = ["serde"] }
+
+# Concurrency
+parking_lot = "0.12.4"
+wasm_thread = "*"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+
+# Graphics & Windowing
+wgpu = "27.0.1"
+winit = { version = "0.30.12", features = ["rwh_05", "rwh_06"] }
+glam = { version = "0.30.6", features = ["mint", "serde", "bytemuck"] }
+bytemuck = "1.23.2"
+
+# Egui
+egui = "0.33.0"
+egui_extras = { version = "0.33.0", features = ["syntect"] }
+egui-wgpu = { version = "0.33.0", features = ["winit"] }
+egui-winit = { version = "0.33.0", default-features = false }
+
+# Audio
+kira = "0.10.2"
+cpal = { version = "0.15.1", features = ["oboe-shared-stdcxx"] }
+
+# Utilities
+rand = "0.9.2"
+pollster = "0.4.0"
+env_logger = "0.11.8"
+num_enum = "0.7"
+strum = "0.27"
+strum_macros = "0.27"
+rfd = "0.15"
+
+# Profiling
+tracy-client = { version = "0.18", default-features = false }
+
+# Internal crates
+zu_core = { path = "crates/zu_core" }
+
+[patch.crates-io]
+puffin = { git = "https://github.com/EmbarkStudios/puffin.git", branch = "main" }

@@ -1,0 +1,17 @@
+dictionaries = [
+    "en_us",
+    "ru",
+]
+words = [
+    "egui",
+    "gruvbox",
+    "kum",
+    "kumir",
+    "swapchain",
+    "vello",
+    "wgpu",
+    "алг",
+    "вещ",
+    "кц",
+    "нц",
+]

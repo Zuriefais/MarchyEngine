@@ -1,0 +1,9 @@
+# Zurie Engine Configuration
+
+[module]
+# Path to the WASM module to load on startup
+# Comment out or remove to show module picker on startup
+path = "./target/wasm32-wasip2/release/vampire_like_demo.wasm"
+
+# Auto-load module on startup (default: true)
+auto_load = true

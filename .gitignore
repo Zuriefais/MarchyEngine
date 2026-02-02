@@ -1,0 +1,12 @@
+/target
+add/
+/crates/kumir_gui/dist
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+.idea/
+*.iml
+out/
+.DS_Store
+Thumbs.db

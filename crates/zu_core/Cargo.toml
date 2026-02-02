@@ -1,0 +1,62 @@
+[package]
+name = "zu_core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "zu_core"
+
+[dependencies]
+# Graphics
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+glam = { workspace = true }
+
+# Egui
+egui = { workspace = true }
+egui_extras = { workspace = true }
+egui-wgpu = { workspace = true }
+egui-winit = { workspace = true }
+egui-probe = { path = "../../../egui-probe", features = ["derive"] }
+
+# Windowing
+winit = { workspace = true }
+
+# Core
+log = { workspace = true }
+anyhow = { workspace = true }
+
+# Collections
+indexmap = { workspace = true }
+
+# Concurrency
+parking_lot = { workspace = true }
+
+# Utilities
+env_logger = { workspace = true }
+pollster = { workspace = true }
+rand = { workspace = true }
+rfd = { workspace = true }
+
+# Config
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+
+# Collections
+hashbrown = { workspace = true }
+slotmap = { workspace = true }
+
+# Profiling (local)
+puffin = { path = "../../../puffin/puffin" }
+puffin_egui = { path = "../../../puffin/puffin_egui" }
+puffin_http = { path = "../../../puffin/puffin_http" }
+
+[target.'cfg(windows)'.dependencies]
+win_dialog = "1.0.1"
+backtrace = "0.3.76"
+
+[profile.dev]
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 3
