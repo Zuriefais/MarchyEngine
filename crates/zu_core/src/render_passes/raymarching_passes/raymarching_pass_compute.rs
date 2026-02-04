@@ -1,3 +1,5 @@
+use std::{ops::Range, time::SystemTime};
+
 use bytemuck::{Pod, Zeroable, bytes_of};
 use egui_probe::EguiProbe;
 use wgpu::{
@@ -9,10 +11,14 @@ use crate::texture_manager::{TextureManager, textures::EngineTexture};
 
 #[repr(C)]
 #[derive(PartialEq, Debug, Clone, Copy, Zeroable, Pod)]
-struct RaymarchingConstants {}
+struct RaymarchingConstants {
+    texture_size: [f32; 2],
+    time: f32,
+}
 
 pub struct RaymarchingRenderComputePass {
     compute_pipeline: wgpu::ComputePipeline,
+    current_time: SystemTime,
 }
 
 impl RaymarchingRenderComputePass {
@@ -23,7 +29,10 @@ impl RaymarchingRenderComputePass {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Raymarching compute pass layout descriptor"),
             bind_group_layouts: &[texture_manager.get_compute_mut_bind_group_layout()],
-            push_constant_ranges: &[],
+            push_constant_ranges: &[PushConstantRange {
+                stages: ShaderStages::COMPUTE,
+                range: 0..std::mem::size_of::<RaymarchingConstants>() as u32,
+            }],
         });
 
         let compute_pipeline = device.create_compute_pipeline(&ComputePipelineDescriptor {
@@ -34,7 +43,10 @@ impl RaymarchingRenderComputePass {
             compilation_options: Default::default(),
             cache: Default::default(),
         });
-        RaymarchingRenderComputePass { compute_pipeline }
+        RaymarchingRenderComputePass {
+            compute_pipeline,
+            current_time: SystemTime::now(),
+        }
     }
 
     pub fn render(
@@ -49,7 +61,13 @@ impl RaymarchingRenderComputePass {
             timestamp_writes: Default::default(),
         });
         compute_pass.set_pipeline(&self.compute_pipeline);
-
+        compute_pass.set_push_constants(
+            0,
+            bytes_of(&RaymarchingConstants {
+                texture_size: [width as f32, height as f32],
+                time: self.current_time.elapsed().unwrap().as_secs_f32(),
+            }),
+        );
         compute_pass.set_bind_group(
             0,
             texture_manager
