@@ -1,4 +1,5 @@
-use egui_probe::EguiProbe;
+use egui::{Response, Ui};
+use egui_probe::{EguiProbe, Style};
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 use crate::render_passes::quad_vertex::QuadVertexRenderPass;
@@ -12,12 +13,27 @@ use crate::texture_manager::{
 #[derive(Debug, Clone, EguiProbe)]
 pub struct RenderOptions {
     show: String,
+    #[egui_probe(with probe_fov)]
+    FOV: f32,
+}
+
+fn probe_fov(value: &mut f32, ui: &mut Ui, _style: &Style) -> Response {
+    ui.horizontal(|ui| {
+        ui.add(
+            egui::Slider::new(value, 1.0..=120.0)
+                .step_by(0.1)
+                .fixed_decimals(1)
+                .trailing_fill(true),
+        );
+    })
+    .response
 }
 
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
             show: "Raymarching".into(), // Show scene texture directly
+            FOV: 1.0,
         }
     }
 }
@@ -92,8 +108,13 @@ impl RenderPassManager {
 
     pub fn render(&mut self, view: &TextureView, encoder: &mut CommandEncoder, _device: &Device) {
         puffin::profile_function!();
-        self.raymarching_pass
-            .render(encoder, &self.texture_manager, self.width, self.height);
+        self.raymarching_pass.render(
+            encoder,
+            &self.texture_manager,
+            self.width,
+            self.height,
+            self.render_options.FOV,
+        );
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass
                 .render(encoder, texture.bind_group(), view, &self.quad_render_pass);

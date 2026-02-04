@@ -14,6 +14,7 @@ use crate::texture_manager::{TextureManager, textures::EngineTexture};
 struct RaymarchingConstants {
     texture_size: [f32; 2],
     time: f32,
+    FOV: f32,
 }
 
 pub struct RaymarchingRenderComputePass {
@@ -55,6 +56,7 @@ impl RaymarchingRenderComputePass {
         texture_manager: &TextureManager,
         width: u32,
         height: u32,
+        FOV: f32,
     ) {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Raymarching compute pass"),
@@ -66,6 +68,7 @@ impl RaymarchingRenderComputePass {
             bytes_of(&RaymarchingConstants {
                 texture_size: [width as f32, height as f32],
                 time: self.current_time.elapsed().unwrap().as_secs_f32(),
+                FOV,
             }),
         );
         compute_pass.set_bind_group(

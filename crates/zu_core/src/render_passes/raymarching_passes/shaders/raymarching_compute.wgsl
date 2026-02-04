@@ -2,7 +2,8 @@
 
 struct PushConstants {
     texture_size: vec2<f32>,
-    time: f32
+    time: f32,
+    FOV: f32
 };
 
 var<push_constant> constants: PushConstants;
@@ -15,7 +16,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 
     let ray_origin = vec3<f32>(0, 0, -3.0);
-    let ray_direction = normalize(vec3<f32>(uv, 1.0));
+    let ray_direction = normalize(vec3<f32>(uv * constants.FOV, 1.0));
 
     var distance_traveled = 0.0;
     var color = vec3<f32>(0.0);
@@ -38,7 +39,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 fn map(new_ray_position: vec3<f32>) -> f32 {
     let box_pos = vec3<f32>(cos(constants.time), sin(constants.time), 0.0);
-    return sdRoundBox(new_ray_position - box_pos, vec3<f32>(1.0), 0.5);
+    return max(sdRoundBox(new_ray_position - box_pos, vec3<f32>(1.0), 0.5), sdSphere(new_ray_position, 1.0));
 }
 
 
