@@ -24,8 +24,17 @@ pub struct RaymarchingRenderComputePass {
 
 impl RaymarchingRenderComputePass {
     pub fn new(device: &Device, texture_manager: &mut TextureManager) -> Self {
-        let shader =
-            device.create_shader_module(wgpu::include_wgsl!("./shaders/raymarching_compute.wgsl"));
+        use std::fs;
+
+        let source = fs::read_to_string(
+            "crates/zu_core/src/render_passes/raymarching_passes/shaders/raymarching_compute.wgsl",
+        )
+        .expect("Failed to read raymarching_compute.wgsl");
+        include_bytes!()
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Raymarching compute shader"),
+            source: wgpu::ShaderSource::Wgsl(source.into()),
+        });
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Raymarching compute pass layout descriptor"),

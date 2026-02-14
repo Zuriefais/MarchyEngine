@@ -29,6 +29,7 @@ pub struct AppState {
     present_mode: PresentMode,
     vsync_enabled: bool,
     instance: Instance,
+    recreate_render_pass_manager: bool,
 }
 
 impl AppState {
@@ -154,6 +155,7 @@ impl AppState {
             present_mode: wgpu::PresentMode::AutoVsync,
             vsync_enabled: true,
             instance,
+            recreate_render_pass_manager: false,
         })
     }
 
@@ -209,6 +211,12 @@ impl AppState {
             return;
         }
 
+        if self.recreate_render_pass_manager {
+            self.recreate_render_pass_manager = false;
+            self.render_pass_manager =
+                RenderPassManager::new(&self.device, &self.surface_config, width, height);
+        }
+
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [width, height],
             pixels_per_point: self.window.scale_factor() as f32 * self.scale_factor,
@@ -249,7 +257,9 @@ impl AppState {
             self.engine_gui.render_gui(
                 self.render_pass_manager.get_options(),
                 &mut self.vsync_enabled,
+                &mut self.recreate_render_pass_manager,
             );
+
             if vsync_enabled != self.vsync_enabled {
                 need_reconfigure = true;
             }
