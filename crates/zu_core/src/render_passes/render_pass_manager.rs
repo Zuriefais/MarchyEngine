@@ -20,7 +20,17 @@ pub struct RenderOptions {
     FOV: f32,
     #[egui_probe(with probe_rotation)]
     rotation: f32,
+    #[egui_probe(with probe_vec3)]
     ray_origin: Vec3,
+}
+
+fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
+    ui.horizontal(|ui| {
+        ui.add(egui::DragValue::new(&mut value.x).speed(0.01));
+        ui.add(egui::DragValue::new(&mut value.y).speed(0.01));
+        ui.add(egui::DragValue::new(&mut value.z).speed(0.01));
+    })
+    .response
 }
 
 fn probe_rotation(value: &mut f32, ui: &mut Ui, _style: &Style) -> Response {
@@ -53,6 +63,7 @@ impl Default for RenderOptions {
             show: "Raymarching".into(), // Show scene texture directly
             rotation: 0.0,
             FOV: 1.0,
+            ray_origin: Vec3::new(0.0, 0.0, 3.0),
         }
     }
 }
@@ -134,6 +145,7 @@ impl RenderPassManager {
             self.height,
             self.render_options.FOV,
             self.render_options.rotation,
+            self.render_options.ray_origin,
         );
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass

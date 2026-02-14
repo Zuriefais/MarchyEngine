@@ -2,6 +2,7 @@ use std::{ops::Range, time::SystemTime};
 
 use bytemuck::{Pod, Zeroable, bytes_of};
 use egui_probe::EguiProbe;
+use glam::Vec3;
 use wgpu::{
     CommandEncoder, ComputePipelineDescriptor, Device, PushConstantRange, ShaderStages,
     util::RenderEncoder,
@@ -32,7 +33,6 @@ impl RaymarchingRenderComputePass {
             "crates/zu_core/src/render_passes/raymarching_passes/shaders/raymarching_compute.wgsl",
         )
         .expect("Failed to read raymarching_compute.wgsl");
-        include_bytes!()
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Raymarching compute shader"),
             source: wgpu::ShaderSource::Wgsl(source.into()),
@@ -69,6 +69,7 @@ impl RaymarchingRenderComputePass {
         height: u32,
         FOV: f32,
         rotation: f32,
+        ray_origin: Vec3,
     ) {
         let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("Raymarching compute pass"),
@@ -80,6 +81,7 @@ impl RaymarchingRenderComputePass {
             bytes_of(&RaymarchingConstants {
                 texture_size: [width as f32, height as f32],
                 time: self.current_time.elapsed().unwrap().as_secs_f32(),
+                ray_origin,
                 rotation: rotation,
                 FOV,
             }),
