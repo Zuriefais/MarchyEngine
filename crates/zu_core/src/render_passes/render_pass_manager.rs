@@ -1,5 +1,8 @@
+use std::f32::consts::PI;
+
 use egui::{Response, Ui};
 use egui_probe::{EguiProbe, Style};
+use glam::Vec3;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 use crate::render_passes::quad_vertex::QuadVertexRenderPass;
@@ -15,6 +18,21 @@ pub struct RenderOptions {
     show: String,
     #[egui_probe(with probe_fov)]
     FOV: f32,
+    #[egui_probe(with probe_rotation)]
+    rotation: f32,
+    ray_origin: Vec3,
+}
+
+fn probe_rotation(value: &mut f32, ui: &mut Ui, _style: &Style) -> Response {
+    ui.horizontal(|ui| {
+        ui.add(
+            egui::Slider::new(value, 0.0..=(2.0 * PI))
+                .step_by(0.001)
+                .fixed_decimals(9)
+                .trailing_fill(true),
+        );
+    })
+    .response
 }
 
 fn probe_fov(value: &mut f32, ui: &mut Ui, _style: &Style) -> Response {
@@ -33,6 +51,7 @@ impl Default for RenderOptions {
     fn default() -> Self {
         Self {
             show: "Raymarching".into(), // Show scene texture directly
+            rotation: 0.0,
             FOV: 1.0,
         }
     }
@@ -114,6 +133,7 @@ impl RenderPassManager {
             self.width,
             self.height,
             self.render_options.FOV,
+            self.render_options.rotation,
         );
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass

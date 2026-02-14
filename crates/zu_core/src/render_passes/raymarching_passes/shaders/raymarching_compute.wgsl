@@ -3,6 +3,8 @@
 struct PushConstants {
     texture_size: vec2<f32>,
     time: f32,
+    rotation: f32,
+    ray_origin: vec3<f32>,
     FOV: f32
 };
 
@@ -15,8 +17,8 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let uv = (pixelCoord / constants.texture_size) * 2.0 - vec2<f32>(1.0, 1.0);
 
 
-    let ray_origin = vec3<f32>(0, 0, -3.0);
-    let ray_direction = normalize(vec3<f32>(uv * constants.FOV, 1.0));
+    let ray_origin = constants.ray_origin;
+    let ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.FOV, 1.0));
 
     var distance_traveled = 0.0;
     var color = vec3<f32>(0.0);
@@ -39,7 +41,10 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
 fn map(new_ray_position: vec3<f32>) -> f32 {
     let box_pos = vec3<f32>(cos(constants.time), sin(constants.time), 0.0);
-    return max(sdRoundBox(new_ray_position - box_pos, vec3<f32>(1.0), 0.5), sdSphere(new_ray_position, 1.0));
+    let ground = new_ray_position.y + 0.75;
+    let p = new_ray_position - box_pos;
+    let q = vec3f(p.xy * rot2d(constants.time), p.z);
+    return min(min(sdRoundBox(q, vec3<f32>(1.0), 0.5), sdSphere(new_ray_position, 1.0)), ground);
 }
 
 
@@ -52,4 +57,10 @@ fn sdRoundBox(p: vec3<f32>, b: vec3<f32>, r: f32 ) -> f32
 {
   let q = abs(p) - b + r;
   return length(max(q, vec3<f32>(0.0))) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
+fn rot2d(angle: f32) -> mat2x2<f32> {
+    let sin = sin(angle);
+    let cos = cos(angle);
+    return mat2x2<f32>(cos, -sin, sin, cos);
 }
