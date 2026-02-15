@@ -25,6 +25,8 @@ pub struct RenderOptions {
     #[egui_probe(with probe_vec3)]
     ray_origin: Vec3,
     raymarching_objects: Vec<RaymarchingObject>,
+    #[egui_probe(with probe_rotation)]
+    yz_rotation: f32,
 }
 
 fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
@@ -77,6 +79,7 @@ impl Default for RenderOptions {
                     radius: 0.5,
                 },
             ],
+            yz_rotation: 0.0,
         }
     }
 }
@@ -169,6 +172,7 @@ impl RenderPassManager {
             self.render_options.rotation,
             self.render_options.ray_origin,
             &self.render_options.raymarching_objects,
+            self.render_options.yz_rotation,
         );
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass

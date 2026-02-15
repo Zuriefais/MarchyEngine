@@ -22,6 +22,7 @@ struct RaymarchingConstants {
     ray_origin: Vec3,
     FOV: f32,
     objects_count: u32,
+    yz_rotation: f32,
 }
 
 #[repr(C)]
@@ -151,6 +152,7 @@ impl RaymarchingRenderComputePass {
         rotation: f32,
         ray_origin: Vec3,
         objects: &[RaymarchingObject],
+        yz_rotation: f32,
     ) {
         let required_size = (size_of::<RaymarchingObject>() * objects.len()) as u64;
         if required_size < self.storage_buffer.size() {
@@ -175,6 +177,7 @@ impl RaymarchingRenderComputePass {
                 rotation: rotation,
                 FOV,
                 objects_count: objects.len() as u32,
+                yz_rotation,
             }),
         );
         compute_pass.set_bind_group(
@@ -186,8 +189,8 @@ impl RaymarchingRenderComputePass {
             &[],
         );
         compute_pass.set_bind_group(1, Some(&self.storage_bind_group), &[]);
-        let wg_x = (width + 7) / 16;
-        let wg_y = (height + 7) / 16;
+        let wg_x = (width + 15) / 16;
+        let wg_y = (height + 15) / 16;
         compute_pass.dispatch_workgroups(wg_x, wg_y, 1);
     }
 }
