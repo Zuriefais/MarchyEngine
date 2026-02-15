@@ -27,6 +27,19 @@ pub struct RenderOptions {
     raymarching_objects: Vec<RaymarchingObject>,
     #[egui_probe(with probe_rotation)]
     yz_rotation: f32,
+    #[egui_probe(with probe_vec3)]
+    sun_dir: Vec3,
+    #[egui_probe(with probe_color)]
+    sun_color: Vec3,
+}
+
+fn probe_color(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
+    let mut color = value.to_array();
+    let responese = ui
+        .horizontal(|ui| ui.color_edit_button_rgb(&mut color))
+        .response;
+    *value = Vec3::new(color[0], color[1], color[2]);
+    responese
 }
 
 fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
@@ -80,6 +93,8 @@ impl Default for RenderOptions {
                 },
             ],
             yz_rotation: 0.0,
+            sun_dir: Vec3::new(1.0, 1.0, 0.5),
+            sun_color: Vec3::new(1.0, 1.0, 1.0),
         }
     }
 }
@@ -173,7 +188,10 @@ impl RenderPassManager {
             self.render_options.ray_origin,
             &self.render_options.raymarching_objects,
             self.render_options.yz_rotation,
+            self.render_options.sun_dir,
+            self.render_options.sun_color,
         );
+        println!("sun color {}", self.render_options.sun_color);
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass
                 .render(encoder, texture.bind_group(), view, &self.quad_render_pass);

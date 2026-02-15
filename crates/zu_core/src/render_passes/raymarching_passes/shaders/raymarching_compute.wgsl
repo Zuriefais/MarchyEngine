@@ -16,7 +16,12 @@ struct PushConstants {
     ray_origin: vec3<f32>,
     FOV: f32,
     objects_count: u32,
-    yz_rotation: f32
+    yz_rotation: f32,
+    pad0: f32,
+    sun_dir: vec3<f32>,
+    pad1: f32,
+    sun_color: vec3<f32>,
+    pad2: f32,
 };
 
 var<push_constant> constants: PushConstants;
@@ -31,45 +36,53 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     uv.x *= aspect;
 
 
-    let ray_origin = constants.ray_origin + constants.time;
+    let ray_origin = constants.ray_origin;
     var ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.FOV, 1.0));
     let yz = ray_direction.yz * rot2d(constants.yz_rotation);
     ray_direction = normalize(vec3<f32>(ray_direction.x, yz));
 
     var distance_traveled = 0.0;
     var color = vec3<f32>(0.0);
+    var normal = vec3<f32>(0.0);
 
     for (var i = 0; i < 80; i++) {
         let new_ray_position = ray_origin + ray_direction * distance_traveled;
-
-
-        let distance = map(new_ray_position, uv);
+        let distance = map(new_ray_position);
         distance_traveled += distance;
 
-        if distance < 0.01 || distance_traveled > 100.0 {
+        if distance < 0.05 || distance_traveled > 100.0 {
+            normal = get_normal(new_ray_position);
             break;
         }
     }
 
-    color = vec3(sin(distance_traveled), 0.5, cos(distance_traveled));
+    // let diff = max(0.0, dot(normal, normalize(constants.sun_dir)));
+
+    // color = diff * constants.sun_color + vec3<f32>(0.1, 0.1, 0.1);
+
+    let light_dir = normalize(constants.sun_dir);
+    let diff = max(0.0, dot(normal, light_dir));
+    color = diff * constants.sun_color + vec3<f32>(0.1,0.1,0.1);
+
+
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
 
-fn map(new_ray_position: vec3<f32>, uv: vec2<f32>) -> f32 {
+fn map(new_ray_position: vec3<f32>) -> f32 {
     var map = sdSphere(new_ray_position, 0.1);
     for (var i = 0u; i < constants.objects_count; i = i + 1u) {
         var object = objects[i];
         map = min(map, sdSphere(new_ray_position - object.position, object.radius));
     }
-    map = min(map, infinite_cubes(new_ray_position, uv));
+    map = min(map, infinite_cubes(new_ray_position));
     let ground = new_ray_position.y + 0.75;
     map = min(ground, map);
     return map;
 }
 
-fn infinite_cubes(new_ray_position: vec3<f32>, uv: vec2<f32>) -> f32 {
-    let cell_size = 2.0;
+fn infinite_cubes(new_ray_position: vec3<f32>) -> f32 {
+    let cell_size = 4.0;
     var q = new_ray_position;
 
     // q.x -= sin(constants.time);
@@ -77,11 +90,20 @@ fn infinite_cubes(new_ray_position: vec3<f32>, uv: vec2<f32>) -> f32 {
     // q *= sin(constants.time/4);
     q = repeat(q, cell_size);
 
-    return sdRoundBox(q, vec3<f32>(0.5), sin(constants.time));
+    return sdRoundBox(q, vec3<f32>(0.5), 0.2);
 
 
 
 }
+
+fn get_normal(p: vec3<f32>) -> vec3<f32> {
+    let eps = 0.001;
+    let nx = map(p + vec3<f32>(eps,0,0)) - map(p - vec3<f32>(eps,0,0));
+    let ny = map(p + vec3<f32>(0,eps,0)) - map(p - vec3<f32>(0,eps,0));
+    let nz = map(p + vec3<f32>(0,0,eps)) - map(p - vec3<f32>(0,0,eps));
+    return normalize(vec3<f32>(nx, ny, nz));
+}
+
 
 fn repeat(p: vec3<f32>, c: f32) -> vec3<f32> {
     return p - c * floor((p + 0.5 * c) / c);

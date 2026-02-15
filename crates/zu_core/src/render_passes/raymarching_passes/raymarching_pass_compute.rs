@@ -23,6 +23,11 @@ struct RaymarchingConstants {
     FOV: f32,
     objects_count: u32,
     yz_rotation: f32,
+    pad0: f32,
+    sun_dir: Vec3,
+    pad1: f32,
+    sun_color: Vec3,
+    pad2: f32,
 }
 
 #[repr(C)]
@@ -153,6 +158,10 @@ impl RaymarchingRenderComputePass {
         ray_origin: Vec3,
         objects: &[RaymarchingObject],
         yz_rotation: f32,
+
+        sun_dir: Vec3,
+
+        sun_color: Vec3,
     ) {
         let required_size = (size_of::<RaymarchingObject>() * objects.len()) as u64;
         if required_size < self.storage_buffer.size() {
@@ -178,6 +187,11 @@ impl RaymarchingRenderComputePass {
                 FOV,
                 objects_count: objects.len() as u32,
                 yz_rotation,
+                sun_dir,
+                sun_color,
+                pad0: 0.0,
+                pad1: 0.0,
+                pad2: 0.0,
             }),
         );
         compute_pass.set_bind_group(
