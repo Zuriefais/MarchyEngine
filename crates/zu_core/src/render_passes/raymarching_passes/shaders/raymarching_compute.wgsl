@@ -31,7 +31,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     uv.x *= aspect;
 
 
-    let ray_origin = constants.ray_origin;
+    let ray_origin = constants.ray_origin + constants.time;
     var ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.FOV, 1.0));
     let yz = ray_direction.yz * rot2d(constants.yz_rotation);
     ray_direction = normalize(vec3<f32>(ray_direction.x, yz));
@@ -42,15 +42,16 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     for (var i = 0; i < 80; i++) {
         let new_ray_position = ray_origin + ray_direction * distance_traveled;
 
+
         let distance = map(new_ray_position, uv);
         distance_traveled += distance;
 
-        if distance < 0.001 || distance_traveled > 100.0 {
+        if distance < 0.01 || distance_traveled > 100.0 {
             break;
         }
     }
 
-    color = vec3(distance_traveled * .1);
+    color = vec3(sin(distance_traveled), 0.5, cos(distance_traveled));
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
@@ -70,13 +71,16 @@ fn map(new_ray_position: vec3<f32>, uv: vec2<f32>) -> f32 {
 fn infinite_cubes(new_ray_position: vec3<f32>, uv: vec2<f32>) -> f32 {
     let cell_size = 2.0;
     var q = new_ray_position;
-    q.x -= sin(constants.time);
-    q.y -= cos(constants.time);
-    q *= sin(constants.time/2);
+
+    // q.x -= sin(constants.time);
+    // q.y -= cos(constants.time);
+    // q *= sin(constants.time/4);
     q = repeat(q, cell_size);
 
+    return sdRoundBox(q, vec3<f32>(0.5), sin(constants.time));
 
-    return sdSphere(q, 0.1);
+
+
 }
 
 fn repeat(p: vec3<f32>, c: f32) -> vec3<f32> {
