@@ -137,7 +137,8 @@ impl AppState {
 
         let engine_gui = EngineGui::new(egui_renderer.context());
 
-        let render_pass_manager = RenderPassManager::new(&device, &surface_config, width, height);
+        let render_pass_manager =
+            RenderPassManager::new(&device, &queue, &surface_config, width, height);
 
         info!("App State created!!");
 
@@ -213,8 +214,15 @@ impl AppState {
 
         if self.recreate_render_pass_manager {
             self.recreate_render_pass_manager = false;
-            self.render_pass_manager =
-                RenderPassManager::new(&self.device, &self.surface_config, width, height);
+            let options = self.render_pass_manager.get_options().clone();
+            self.render_pass_manager = RenderPassManager::new(
+                &self.device,
+                &self.queue,
+                &self.surface_config,
+                width,
+                height,
+            );
+            *self.render_pass_manager.get_options() = options;
         }
 
         let screen_descriptor = ScreenDescriptor {
@@ -249,7 +257,7 @@ impl AppState {
 
             let vsync_enabled = self.vsync_enabled;
             self.render_pass_manager
-                .render(&surface_view, &mut encoder, &self.device);
+                .render(&self.queue, &surface_view, &mut encoder, &self.device);
 
             // Begin egui frame before rendering GUI
             self.egui_renderer.begin_frame(&self.window);

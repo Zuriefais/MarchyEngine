@@ -6,7 +6,9 @@ use glam::Vec3;
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 use crate::render_passes::quad_vertex::QuadVertexRenderPass;
-use crate::render_passes::raymarching_passes::raymarching_pass_compute::RaymarchingRenderComputePass;
+use crate::render_passes::raymarching_passes::raymarching_pass_compute::{
+    RaymarchingObject, RaymarchingRenderComputePass,
+};
 use crate::render_passes::show_pass::ShowRenderPass;
 use crate::texture_manager::{
     TextureManager,
@@ -22,6 +24,7 @@ pub struct RenderOptions {
     rotation: f32,
     #[egui_probe(with probe_vec3)]
     ray_origin: Vec3,
+    raymarching_objects: Vec<RaymarchingObject>,
 }
 
 fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
@@ -64,6 +67,16 @@ impl Default for RenderOptions {
             rotation: 0.0,
             FOV: 1.0,
             ray_origin: Vec3::new(0.0, 0.0, 3.0),
+            raymarching_objects: vec![
+                RaymarchingObject {
+                    position: Vec3::new(-0.5, 0.0, 0.0),
+                    radius: 0.5,
+                },
+                RaymarchingObject {
+                    position: Vec3::new(0.5, 0.0, 0.0),
+                    radius: 0.5,
+                },
+            ],
         }
     }
 }
@@ -81,6 +94,7 @@ pub struct RenderPassManager {
 impl RenderPassManager {
     pub fn new(
         device: &Device,
+        queue: &Queue,
         config: &wgpu::SurfaceConfiguration,
         width: u32,
         height: u32,
@@ -103,7 +117,8 @@ impl RenderPassManager {
         let quad_render_pass = QuadVertexRenderPass::new(device);
 
         let show_pass = ShowRenderPass::new(device, config, &quad_render_pass);
-        let raymarching_pass = RaymarchingRenderComputePass::new(device, &mut texture_manager);
+        let raymarching_pass =
+            RaymarchingRenderComputePass::new(device, queue, &mut texture_manager);
         Self {
             quad_render_pass,
 
@@ -136,9 +151,16 @@ impl RenderPassManager {
         self.height = height;
     }
 
-    pub fn render(&mut self, view: &TextureView, encoder: &mut CommandEncoder, _device: &Device) {
+    pub fn render(
+        &mut self,
+        queue: &Queue,
+        view: &TextureView,
+        encoder: &mut CommandEncoder,
+        _device: &Device,
+    ) {
         puffin::profile_function!();
         self.raymarching_pass.render(
+            queue,
             encoder,
             &self.texture_manager,
             self.width,
@@ -146,6 +168,7 @@ impl RenderPassManager {
             self.render_options.FOV,
             self.render_options.rotation,
             self.render_options.ray_origin,
+            &self.render_options.raymarching_objects,
         );
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass

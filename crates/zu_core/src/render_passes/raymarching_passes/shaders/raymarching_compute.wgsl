@@ -1,11 +1,20 @@
 @group(0) @binding(0) var output_texture: texture_storage_2d<rgba32float, read_write>;
 
+@group(1) @binding(0) var<storage, read> objects: array<RaymarchingObject>;
+
+struct RaymarchingObject {
+    position: vec3<f32>,
+    radius: f32
+
+}
+
 struct PushConstants {
     texture_size: vec2<f32>,
     time: f32,
     rotation: f32,
     ray_origin: vec3<f32>,
-    FOV: f32
+    FOV: f32,
+    objects_count: u32
 };
 
 var<push_constant> constants: PushConstants;
@@ -34,17 +43,22 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    color = vec3(distance_traveled * .2);
+    color = vec3(distance_traveled * .5);
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
 
 fn map(new_ray_position: vec3<f32>) -> f32 {
-    let box_pos = vec3<f32>(cos(constants.time), sin(constants.time), 0.0);
-    let ground = new_ray_position.y + 0.75;
-    let p = new_ray_position - box_pos;
-    let q = vec3f(p.xy * rot2d(constants.time), p.z);
-    return min(min(sdRoundBox(q, vec3<f32>(1.0), 0.5), sdSphere(new_ray_position, 1.0)), ground);
+    var map = sdSphere(new_ray_position, 0.1);
+    for (var i = 0u; i < constants.objects_count; i = i + 1u) {
+        var object = objects[i];
+        map = min(map, sdSphere(new_ray_position - object.position, object.radius));
+    }
+    // let box_pos = vec3<f32>(cos(constants.time), sin(constants.time), 0.0);
+    // let ground = new_ray_position.y + 0.75;
+    // let p = new_ray_position - box_pos;
+    // let q = vec3f(p.xy * rot2d(constants.time), p.z);
+    return map;
 }
 
 
