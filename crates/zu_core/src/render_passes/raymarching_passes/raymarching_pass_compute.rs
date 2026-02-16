@@ -3,7 +3,7 @@ use std::{num::NonZero, ops::Range, time::SystemTime};
 use bytemuck::{NoUninit, Pod, Zeroable, bytes_of, cast_slice};
 use egui::{Response, Ui};
 use egui_probe::{EguiProbe, Style};
-use glam::Vec3;
+use glam::{Vec3, Vec4};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferAddress, BufferBinding,
@@ -34,16 +34,21 @@ struct RaymarchingConstants {
 #[repr(C)]
 #[derive(PartialEq, Debug, Clone, Copy, Zeroable, Pod, EguiProbe)]
 pub struct RaymarchingObject {
-    #[egui_probe(with probe_vec3)]
-    pub position: Vec3,
-    pub radius: f32,
+    #[egui_probe(with probe_vec4)]
+    pub position: Vec4, //16 bytes
+    pub material: f32, //4 bytes
+    #[egui_probe(skip)]
+    pub _pad0: [f32; 3],
+    #[egui_probe(skip)]
+    pub _pad1: [f32; 4],
 }
 
-fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
+fn probe_vec4(value: &mut Vec4, ui: &mut Ui, _style: &Style) -> Response {
     ui.horizontal(|ui| {
         ui.add(egui::DragValue::new(&mut value.x).speed(0.01));
         ui.add(egui::DragValue::new(&mut value.y).speed(0.01));
         ui.add(egui::DragValue::new(&mut value.z).speed(0.01));
+        ui.add(egui::DragValue::new(&mut value.w).speed(0.01));
     })
     .response
 }
@@ -51,8 +56,10 @@ fn probe_vec3(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
 impl Default for RaymarchingObject {
     fn default() -> Self {
         Self {
-            position: Default::default(),
-            radius: 0.5,
+            position: Vec4::new(0.0, 0.0, 0.0, 0.5),
+            material: 0.0,
+            _pad0: [0.0, 0.0, 0.0],
+            _pad1: [0.0, 0.0, 0.0, 0.0],
         }
     }
 }
@@ -67,6 +74,8 @@ pub struct RaymarchingRenderComputePass {
 
 impl RaymarchingRenderComputePass {
     pub fn new(device: &Device, queue: &Queue, texture_manager: &mut TextureManager) -> Self {
+        println!("{}", std::mem::size_of::<RaymarchingObject>());
+
         use std::fs;
 
         let source = fs::read_to_string(
@@ -104,8 +113,10 @@ impl RaymarchingRenderComputePass {
             &storage_buffer,
             0,
             bytes_of(&[RaymarchingObject {
-                position: Vec3::ZERO,
-                radius: 0.5,
+                position: Vec4::ZERO,
+                material: 0.0,
+                _pad0: [0.0, 0.0, 0.0],
+                _pad1: [0.0, 0.0, 0.0, 0.0],
             }]),
         );
 

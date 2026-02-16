@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use egui::{Response, Ui};
 use egui_probe::{EguiProbe, Style};
-use glam::Vec3;
+use glam::{Vec3, Vec4};
 use wgpu::{CommandEncoder, Device, Queue, TextureView};
 
 use crate::render_passes::quad_vertex::QuadVertexRenderPass;
@@ -84,12 +84,16 @@ impl Default for RenderOptions {
             ray_origin: Vec3::new(0.0, 0.0, 3.0),
             raymarching_objects: vec![
                 RaymarchingObject {
-                    position: Vec3::new(-0.5, 0.0, 0.0),
-                    radius: 0.5,
+                    position: Vec4::new(-0.5, 0.0, 0.0, 0.5),
+                    material: 0.0,
+                    _pad0: [0.0, 0.0, 0.0],
+                    _pad1: [0.0, 0.0, 0.0, 0.0],
                 },
                 RaymarchingObject {
-                    position: Vec3::new(0.5, 0.0, 0.0),
-                    radius: 0.5,
+                    position: Vec4::new(0.5, 0.0, 0.0, 0.5),
+                    material: 0.0,
+                    _pad0: [0.0, 0.0, 0.0],
+                    _pad1: [0.0, 0.0, 0.0, 0.0],
                 },
             ],
             yz_rotation: 0.0,
