@@ -13,21 +13,22 @@ use wgpu::{
 
 use crate::texture_manager::{TextureManager, textures::EngineTexture};
 
-#[repr(C)]
+#[repr(C, align(16))]
 #[derive(PartialEq, Debug, Clone, Copy, Zeroable, Pod)]
 struct RaymarchingConstants {
-    texture_size: [f32; 2],
-    time: f32,
-    rotation: f32,
-    ray_origin: Vec3,
-    FOV: f32,
-    objects_count: u32,
-    yz_rotation: f32,
+    texture_size: [f32; 2], //8 bytes
+    time: f32,              //4 bytes
+    rotation: f32,          //4 bytes
+    ray_origin: Vec3,       //12 bytes
     pad0: f32,
-    sun_dir: Vec3,
-    pad1: f32,
-    sun_color: Vec3,
-    pad2: f32,
+    FOV: f32,           //4 bytes
+    objects_count: u32, //4 bytes
+    yz_rotation: f32,   //4 bytes
+    pad1: f32,          //4 bytes
+    sun_dir: Vec3,      //12 bytes
+    pad2: f32,          //4 bytes
+    sun_color: Vec3,    //12 bytes
+    pad3: f32,          //4 bytes
 }
 
 #[repr(C)]
@@ -190,8 +191,9 @@ impl RaymarchingRenderComputePass {
                 sun_dir,
                 sun_color,
                 pad0: 0.0,
-                pad1: 0.0,
-                pad2: 0.0,
+                pad2: 1.0,
+                pad1: 1.0,
+                pad3: 0.0,
             }),
         );
         compute_pass.set_bind_group(
@@ -203,8 +205,8 @@ impl RaymarchingRenderComputePass {
             &[],
         );
         compute_pass.set_bind_group(1, Some(&self.storage_bind_group), &[]);
-        let wg_x = (width + 15) / 16;
-        let wg_y = (height + 15) / 16;
+        let wg_x = (width + 15) / 32;
+        let wg_y = (height + 15) / 32;
         compute_pass.dispatch_workgroups(wg_x, wg_y, 1);
     }
 }

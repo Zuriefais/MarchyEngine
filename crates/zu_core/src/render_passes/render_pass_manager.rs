@@ -191,7 +191,7 @@ impl RenderPassManager {
             self.render_options.sun_dir,
             self.render_options.sun_color,
         );
-        println!("sun color {}", self.render_options.sun_color);
+
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {
             self.show_pass
                 .render(encoder, texture.bind_group(), view, &self.quad_render_pass);

@@ -14,20 +14,21 @@ struct PushConstants {
     time: f32,
     rotation: f32,
     ray_origin: vec3<f32>,
+    pad0: f32,
     FOV: f32,
     objects_count: u32,
     yz_rotation: f32,
-    pad0: f32,
-    sun_dir: vec3<f32>,
     pad1: f32,
-    sun_color: vec3<f32>,
+    sun_dir: vec3<f32>,
     pad2: f32,
+    sun_color: vec3<f32>,
+    pad3: f32,
 };
 
 var<push_constant> constants: PushConstants;
 
 
-@compute @workgroup_size(16, 16)
+@compute @workgroup_size(32, 32)
 fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let pixelCoord = vec2<f32>(id.xy);
     let aspect =  constants.texture_size.x / constants.texture_size.y;
@@ -85,15 +86,12 @@ fn infinite_cubes(new_ray_position: vec3<f32>) -> f32 {
     let cell_size = 4.0;
     var q = new_ray_position;
 
-    // q.x -= sin(constants.time);
-    // q.y -= cos(constants.time);
-    // q *= sin(constants.time/4);
+    q.x -= sin(constants.time);
+    q.y -= cos(constants.time);
+    q *= sin(constants.time/4);
     q = repeat(q, cell_size);
 
     return sdRoundBox(q, vec3<f32>(0.5), 0.2);
-
-
-
 }
 
 fn get_normal(p: vec3<f32>) -> vec3<f32> {
