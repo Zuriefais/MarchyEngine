@@ -38,7 +38,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     uv.x *= aspect;
 
 
-    let ray_origin = constants.ray_origin;
+    var ray_origin = constants.ray_origin;
     var ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.FOV, 1.0));
     let yz = ray_direction.yz * rot2d(constants.yz_rotation);
     ray_direction = normalize(vec3<f32>(ray_direction.x, yz));
@@ -54,8 +54,15 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
         distance_traveled += distance;
 
         if distance < 0.05 || distance_traveled > 100.0 {
+
             normal = get_normal(new_ray_position);
-            material = res.y;
+            ray_origin = new_ray_position;
+            if distance_traveled > 100.0 {
+                 material = -1;
+            } else {
+                material = res.y;
+            }
+
             break;
         }
     }
@@ -64,14 +71,30 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // color = diff * constants.sun_color + vec3<f32>(0.1, 0.1, 0.1);
     if material == 0.0 {
-        color = light(normal, -ray_direction, vec3<f32>(1.0), 1.0);
-    } else {
-        color = light(normal, -ray_direction, vec3<f32>(1.0, 0.0, 0.0), 1.0);
+        color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0), 1.0);
+    }
+    else if material == -1.0 {
+        color = get_sky(ray_direction) + get_sun(ray_direction);
+    }
+    else {
+        color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0, 0.0, 0.0), 0.5);
     }
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
 
+fn get_sky(ray_direction: vec3<f32>) -> vec3<f32> {
+    let cosTheta = dot(ray_direction, normalize(constants.sun_dir));
+    let scatter = pow(1.0 - cosTheta, 0.5);
+    let skyColor = mix(vec3(0.2,0.4,0.8), vec3(1.0,0.6,0.2), scatter);
+    return skyColor;
+}
+
+fn get_sun(ray_direction: vec3<f32>) -> vec3<f32>
+{
+    let sunAmount = pow(clamp(dot(ray_direction, normalize(constants.sun_dir)), 0.0, 1.0), 20);
+    return vec3(1.0,0.6,0.05) * sunAmount;
+}
 
 fn disney_diffuse(
     normal: vec3<f32>,
@@ -101,12 +124,30 @@ fn disney_diffuse(
 
 fn light(
     normal: vec3<f32>,
-    view_dir: vec3<f32>,
+    ray_origin: vec3<f32>,
+    ray_dir: vec3<f32>,
     base_color: vec3<f32>,
-    roughness: f32
+    roughness: f32,
 ) -> vec3<f32> {
-     let diffuse = disney_diffuse(normal, view_dir, base_color, roughness);
-     return diffuse * constants.sun_color;
+     let diffuse = disney_diffuse(normal, -ray_dir, base_color, roughness);
+     let light_dir = normalize(constants.sun_dir);
+     let ambient = 0.3;
+     let shadow = soft_shadow(ray_origin + normal * 0.01, light_dir, 0.01, 50, 32);
+     return ambient+diffuse * constants.sun_color * shadow;
+}
+
+fn soft_shadow(ray_origin: vec3<f32>, ray_dir: vec3<f32>, mint: f32, maxt: f32, k: f32) -> f32 {
+    var res = 1.0;
+    var t = mint;
+
+    for(var i=0; i<256 && t < maxt; i++) {
+        let h = map(ray_origin + ray_dir*t).x;
+        if (h<0.001) {return 0.0;}
+        res = min(res, k*h/t);
+        t += h;
+    }
+
+    return res;
 }
 
 
@@ -117,6 +158,7 @@ fn map(new_ray_position: vec3<f32>) -> vec2<f32> {
         res = sdf_union(res, vec2<f32>(sdSphere(new_ray_position - object.position.xyz, object.position.w), object.material));
     }
     res = sdf_union(res, vec2<f32>(infinite_cubes(new_ray_position), 0.0));
+
     let ground = new_ray_position.y + 0.75;
     res = sdf_union(vec2<f32>(ground, 0), res);
     return res;
