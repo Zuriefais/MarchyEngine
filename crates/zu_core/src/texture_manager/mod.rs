@@ -1,9 +1,7 @@
 pub mod textures;
 
 use indexmap::IndexMap;
-use wgpu::{
-    BindGroupLayout, Device, Sampler, TextureFormat,
-};
+use wgpu::{BindGroupLayout, Device, Sampler, TextureFormat};
 
 use crate::texture_manager::textures::{EngineTexture, ManagedTexture, TextureType};
 
@@ -58,7 +56,7 @@ impl BindGroupLayouts {
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::StorageTexture {
                             access: wgpu::StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba32Float,
+                            format: TextureFormat::Rgba8Unorm,
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,

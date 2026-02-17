@@ -1,4 +1,4 @@
-@group(0) @binding(0) var output_texture: texture_storage_2d<rgba32float, read_write>;
+@group(0) @binding(0) var output_texture: texture_storage_2d<rgba8unorm, read_write>;
 
 @group(1) @binding(0) var<storage, read> objects: array<RaymarchingObject>;
 
@@ -74,6 +74,10 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
         case 0: {
             color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0), 1.0);
         }
+        case 2: {
+            let ran = hash33(ray_origin * 5.0);
+            color = light(normal, ray_origin, ray_direction, ran, 1.0);
+        }
         case  -1: {
             color = get_sky(ray_direction) + get_sun(ray_direction);
         }
@@ -84,6 +88,16 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
+
+fn hash33(p: vec3<f32>) -> vec3<f32> {
+    var q = vec3<f32>(
+        dot(p, vec3<f32>(127.1, 311.7, 74.7)),
+        dot(p, vec3<f32>(269.5, 183.3, 246.1)),
+        dot(p, vec3<f32>(113.5, 271.9, 124.6))
+    );
+    return fract(sin(q) * 43758.5453);
+}
+
 
 fn get_sky(ray_direction: vec3<f32>) -> vec3<f32> {
     let cosTheta = dot(ray_direction, normalize(constants.sun_dir));
@@ -186,6 +200,10 @@ fn infinite_cubes(new_ray_position: vec3<f32>) -> f32 {
     // q.x -= sin(constants.time);
     // q.y -= cos(constants.time);
     // q *= sin(constants.time/4);
+    if (new_ray_position.y > 3.0) {
+        return 1000.0;
+    }
+
     q = repeat(q, cell_size);
 
     return sdRoundBox(q, vec3<f32>(0.5), 0.2);

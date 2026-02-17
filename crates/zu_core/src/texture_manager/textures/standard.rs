@@ -1,7 +1,4 @@
-use wgpu::{
-    BindGroup, BindGroupDescriptor, BindGroupEntry, Device, Sampler,
-    Texture, TextureView,
-};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Device, Sampler, Texture, TextureView};
 
 use crate::texture_manager::{BindGroupLayouts, textures::EngineTexture};
 
@@ -33,7 +30,7 @@ impl StandardTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float,
+            format: wgpu::TextureFormat::Rgba8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::RENDER_ATTACHMENT
