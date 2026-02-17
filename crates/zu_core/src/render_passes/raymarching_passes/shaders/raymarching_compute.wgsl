@@ -64,25 +64,51 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     // color = diff * constants.sun_color + vec3<f32>(0.1, 0.1, 0.1);
     if material == 0.0 {
-        color = brdf(normal, vec3<f32>(1.0));
+        color = light(normal, -ray_direction, vec3<f32>(1.0), 1.0);
     } else {
-        color = brdf(normal, vec3<f32>(1.0, 0.0, 0.0));
+        color = light(normal, -ray_direction, vec3<f32>(1.0, 0.0, 0.0), 1.0);
     }
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
 
 
-fn brdf(normal: vec3<f32>, view_dir: vec3<f32>, base_color: vec3<f32>, roughness: f32) -> vec3<f32> {
-    let light_dir = normalize(constants.sun_dir);
-    let cos_theta_l = max(0.0, dot(normal, light_dir));
-    let cos_theta_d = max(0.0, dot(normal, view_dir));
+fn disney_diffuse(
+    normal: vec3<f32>,
+    view_dir: vec3<f32>,
+    base_color: vec3<f32>,
+    roughness: f32
+) -> vec3<f32> {
 
-    let diff = max(0.0, dot(normal, light_dir));
-    let fd90 = 0.5 + 2 * roughness * cos_theta_d;
-    let normalized_base_color = (base_color/PI);
-    return normalized_base_color * (diff * constants.sun_color + vec3<f32>(0.1,0.1,0.1));
+    let N = normal;
+    let V = view_dir;
+    let L = normalize(constants.sun_dir);
+    let H = normalize(L + V);
+
+    let cos_theta_l = max(dot(N, L), 0.0);
+    let cos_theta_v = max(dot(N, V), 0.0);
+    let cos_theta_d = max(dot(L, H), 0.0);
+
+    let fd90 = 0.5 + 2.0 * roughness * cos_theta_d * cos_theta_d;
+
+    let light_scatter = 1.0 + (fd90 - 1.0) * pow(1.0 - cos_theta_l, 5.0);
+    let view_scatter  = 1.0 + (fd90 - 1.0) * pow(1.0 - cos_theta_v, 5.0);
+
+    let diffuse = base_color / PI;
+
+    return diffuse * light_scatter * view_scatter * cos_theta_l;
 }
+
+fn light(
+    normal: vec3<f32>,
+    view_dir: vec3<f32>,
+    base_color: vec3<f32>,
+    roughness: f32
+) -> vec3<f32> {
+     let diffuse = disney_diffuse(normal, view_dir, base_color, roughness);
+     return diffuse * constants.sun_color;
+}
+
 
 fn map(new_ray_position: vec3<f32>) -> vec2<f32> {
     var res = vec2<f32>(sdSphere(new_ray_position, 0.1), 0);
