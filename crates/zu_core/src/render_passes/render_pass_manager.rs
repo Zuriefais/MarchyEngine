@@ -85,13 +85,13 @@ impl Default for RenderOptions {
             raymarching_objects: vec![
                 RaymarchingObject {
                     position: Vec4::new(-0.5, 0.0, 0.0, 0.5),
-                    material: 0.0,
+                    material: 0,
                     _pad0: [0.0, 0.0, 0.0],
                     _pad1: [0.0, 0.0, 0.0, 0.0],
                 },
                 RaymarchingObject {
                     position: Vec4::new(0.5, 0.0, 0.0, 0.5),
-                    material: 0.0,
+                    material: 0,
                     _pad0: [0.0, 0.0, 0.0],
                     _pad1: [0.0, 0.0, 0.0, 0.0],
                 },

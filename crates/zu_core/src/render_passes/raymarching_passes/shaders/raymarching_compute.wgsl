@@ -4,7 +4,7 @@
 
 struct RaymarchingObject {
     position: vec4<f32>,
-    material: f32,
+    material: i32,
     pad: vec3<f32>,
 }
 
@@ -46,11 +46,11 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     var distance_traveled = 0.0;
     var color = vec3<f32>(0.0);
     var normal = vec3<f32>(0.0);
-    var material = 0.0;
+    var material = 0;
     for (var i = 0; i < 80; i++) {
         let new_ray_position = ray_origin + ray_direction * distance_traveled;
         let res = map(new_ray_position);
-        let distance = res.x;
+        let distance = res.res;
         distance_traveled += distance;
 
         if distance < 0.05 || distance_traveled > 100.0 {
@@ -60,7 +60,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
             if distance_traveled > 100.0 {
                  material = -1;
             } else {
-                material = res.y;
+                material = res.material;
             }
 
             break;
@@ -70,14 +70,16 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     // let diff = max(0.0, dot(normal, normalize(constants.sun_dir)));
 
     // color = diff * constants.sun_color + vec3<f32>(0.1, 0.1, 0.1);
-    if material == 0.0 {
-        color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0), 1.0);
-    }
-    else if material == -1.0 {
-        color = get_sky(ray_direction) + get_sun(ray_direction);
-    }
-    else {
-        color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0, 0.0, 0.0), 0.5);
+    switch material {
+        case 0: {
+            color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0), 1.0);
+        }
+        case  -1: {
+            color = get_sky(ray_direction) + get_sun(ray_direction);
+        }
+        default: {
+            color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0, 0.0, 0.0), 0.5);
+        }
     }
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
@@ -141,7 +143,7 @@ fn soft_shadow(ray_origin: vec3<f32>, ray_dir: vec3<f32>, mint: f32, maxt: f32, 
     var t = mint;
 
     for(var i=0; i<256 && t < maxt; i++) {
-        let h = map(ray_origin + ray_dir*t).x;
+        let h = map(ray_origin + ray_dir*t).res;
         if (h<0.001) {return 0.0;}
         res = min(res, k*h/t);
         t += h;
@@ -151,21 +153,26 @@ fn soft_shadow(ray_origin: vec3<f32>, ray_dir: vec3<f32>, mint: f32, maxt: f32, 
 }
 
 
-fn map(new_ray_position: vec3<f32>) -> vec2<f32> {
-    var res = vec2<f32>(sdSphere(new_ray_position, 0.1), 0);
+fn map(new_ray_position: vec3<f32>) -> SdfData {
+    var res = SdfData(sdSphere(new_ray_position, 0.1), 0);
     for (var i = 0u; i < constants.objects_count; i = i + 1u) {
         var object = objects[i];
-        res = sdf_union(res, vec2<f32>(sdSphere(new_ray_position - object.position.xyz, object.position.w), object.material));
+        res = sdf_union(res, SdfData(sdSphere(new_ray_position - object.position.xyz, object.position.w), object.material));
     }
-    res = sdf_union(res, vec2<f32>(infinite_cubes(new_ray_position), 0.0));
+    res = sdf_union(res, SdfData(infinite_cubes(new_ray_position), 0));
 
     let ground = new_ray_position.y + 0.75;
-    res = sdf_union(vec2<f32>(ground, 0), res);
+    res = sdf_union(SdfData(ground, 0), res);
     return res;
 }
 
-fn sdf_union(sdf_1: vec2<f32>, sdf_2: vec2<f32>) -> vec2<f32> {
-    if sdf_1.x > sdf_2.x {
+struct SdfData {
+    res: f32,
+    material: i32
+}
+
+fn sdf_union(sdf_1: SdfData, sdf_2: SdfData) -> SdfData {
+    if sdf_1.res > sdf_2.res {
         return sdf_2;
     } else {
         return sdf_1;
@@ -186,9 +193,9 @@ fn infinite_cubes(new_ray_position: vec3<f32>) -> f32 {
 
 fn get_normal(p: vec3<f32>) -> vec3<f32> {
     let eps = 0.001;
-    let nx = map(p + vec3<f32>(eps,0,0)).x - map(p - vec3<f32>(eps,0,0)).x;
-    let ny = map(p + vec3<f32>(0,eps,0)).x - map(p - vec3<f32>(0,eps,0)).x;
-    let nz = map(p + vec3<f32>(0,0,eps)).x - map(p - vec3<f32>(0,0,eps)).x;
+    let nx = map(p + vec3<f32>(eps,0,0)).res - map(p - vec3<f32>(eps,0,0)).res;
+    let ny = map(p + vec3<f32>(0,eps,0)).res - map(p - vec3<f32>(0,eps,0)).res;
+    let nz = map(p + vec3<f32>(0,0,eps)).res - map(p - vec3<f32>(0,0,eps)).res;
     return normalize(vec3<f32>(nx, ny, nz));
 }
 

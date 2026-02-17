@@ -36,7 +36,7 @@ struct RaymarchingConstants {
 pub struct RaymarchingObject {
     #[egui_probe(with probe_vec4)]
     pub position: Vec4, //16 bytes
-    pub material: f32, //4 bytes
+    pub material: i32, //4 bytes
     #[egui_probe(skip)]
     pub _pad0: [f32; 3],
     #[egui_probe(skip)]
@@ -57,7 +57,7 @@ impl Default for RaymarchingObject {
     fn default() -> Self {
         Self {
             position: Vec4::new(0.0, 0.0, 0.0, 0.5),
-            material: 0.0,
+            material: 0,
             _pad0: [0.0, 0.0, 0.0],
             _pad1: [0.0, 0.0, 0.0, 0.0],
         }
@@ -114,7 +114,7 @@ impl RaymarchingRenderComputePass {
             0,
             bytes_of(&[RaymarchingObject {
                 position: Vec4::ZERO,
-                material: 0.0,
+                material: 0,
                 _pad0: [0.0, 0.0, 0.0],
                 _pad1: [0.0, 0.0, 0.0, 0.0],
             }]),
