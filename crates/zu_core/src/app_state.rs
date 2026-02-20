@@ -8,7 +8,7 @@ use egui_wgpu::wgpu::SurfaceError;
 use egui_wgpu::{ScreenDescriptor, wgpu};
 use log::info;
 use std::sync::Arc;
-use wgpu::{ExperimentalFeatures, Instance, Limits, PresentMode};
+use wgpu::{ExperimentalFeatures, Instance, InstanceFlags, Limits, PresentMode};
 
 use winit::event::WindowEvent;
 
@@ -35,11 +35,15 @@ pub struct AppState {
 impl AppState {
     pub async fn new(window: Arc<Window>, _cli_module: Option<String>) -> anyhow::Result<Self> {
         info!("Creating App State...");
+        let mut flags = InstanceFlags::default();
+        flags.remove(InstanceFlags::VALIDATION);
+
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::all(),
             #[cfg(target_arch = "wasm32")]
             backends: wgpu::Backends::BROWSER_WEBGPU,
+            flags,
             ..Default::default()
         });
 

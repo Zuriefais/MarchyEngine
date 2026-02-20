@@ -31,6 +31,10 @@ pub struct RenderOptions {
     sun_dir: Vec3,
     #[egui_probe(with probe_color)]
     sun_color: Vec3,
+    #[egui_probe(range = 0.0..=100.0)]
+    sun_intensity: f32,
+    #[egui_probe(range = 0.0..=100.0)]
+    exposure: f32,
 }
 
 fn probe_color(value: &mut Vec3, ui: &mut Ui, _style: &Style) -> Response {
@@ -99,6 +103,8 @@ impl Default for RenderOptions {
             yz_rotation: 0.0,
             sun_dir: Vec3::new(1.0, 1.0, 0.5),
             sun_color: Vec3::new(1.0, 1.0, 1.0),
+            sun_intensity: 1.0,
+            exposure: 1.0,
         }
     }
 }
@@ -123,17 +129,10 @@ impl RenderPassManager {
     ) -> RenderPassManager {
         let mut texture_manager = TextureManager::new(device);
         texture_manager.create_texture(
-            "SceneTexture",
-            (width, height),
-            device,
-            TextureType::SceneTexture,
-            1.0,
-        );
-        texture_manager.create_texture(
             "Raymarching",
             (width, height),
             device,
-            TextureType::Standard,
+            TextureType::StandardF16,
             1.0,
         );
         let quad_render_pass = QuadVertexRenderPass::new(device);
@@ -194,6 +193,8 @@ impl RenderPassManager {
             self.render_options.yz_rotation,
             self.render_options.sun_dir,
             self.render_options.sun_color,
+            self.render_options.sun_intensity,
+            self.render_options.exposure,
         );
 
         if let Some(texture) = self.texture_manager.get_texture(&self.render_options.show) {

@@ -1,4 +1,4 @@
-@group(0) @binding(0) var output_texture: texture_storage_2d<rgba8unorm, read_write>;
+@group(0) @binding(0) var output_texture: texture_storage_2d<rgba16float, read_write>;
 
 @group(1) @binding(0) var<storage, read> objects: array<RaymarchingObject>;
 
@@ -12,16 +12,20 @@ struct PushConstants {
     texture_size: vec2<f32>,
     time: f32,
     rotation: f32,
-    ray_origin: vec3<f32>,
-    pad0: f32,
-    FOV: f32,
+
+    ray_origin: vec4<f32>,
+
+    fov: f32,
     objects_count: u32,
     yz_rotation: f32,
-    pad1: f32,
-    sun_dir: vec3<f32>,
-    pad2: f32,
-    sun_color: vec3<f32>,
-    pad3: f32,
+    _pad0: f32,
+
+    sun_dir: vec4<f32>,
+    sun_color: vec4<f32>,
+
+    sun_intensity: f32,
+    exposure: f32,
+    _pad1: vec2<f32>,
 };
 
 var<push_constant> constants: PushConstants;
@@ -29,7 +33,7 @@ var<push_constant> constants: PushConstants;
 const PI: f32 = 3.14159265359f;
 
 
-@compute @workgroup_size(32, 32)
+@compute @workgroup_size(16, 16)
 fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let pixelCoord = vec2<f32>(id.xy);
     let aspect =  constants.texture_size.x / constants.texture_size.y;
@@ -38,8 +42,8 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     uv.x *= aspect;
 
 
-    var ray_origin = constants.ray_origin;
-    var ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.FOV, 1.0));
+    var ray_origin = constants.ray_origin.xyz;
+    var ray_direction = normalize(vec3<f32>(uv * rot2d(constants.rotation) * constants.fov, 1.0));
     let yz = ray_direction.yz * rot2d(constants.yz_rotation);
     ray_direction = normalize(vec3<f32>(ray_direction.x, yz));
 
@@ -48,7 +52,7 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
     var normal = vec3<f32>(0.0);
     var material = 0;
     for (var i = 0; i < 80; i++) {
-        let new_ray_position = ray_origin + ray_direction * distance_traveled;
+        let new_ray_position = ray_origin + ray_direction.xyz * distance_traveled;
         let res = map(new_ray_position);
         let distance = res.res;
         distance_traveled += distance;
@@ -79,12 +83,21 @@ fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
             color = light(normal, ray_origin, ray_direction, ran, 1.0);
         }
         case  -1: {
-            color = get_sky(ray_direction) + get_sun(ray_direction);
+            let sun_dir = normalize(constants.sun_dir.xyz);
+            let distance_out = intersectRaySphereFromInside(origin_view, ray_direction, radiusAtmo);
+            let view_out = origin_view + ray_direction * distance_out;
+            var luminance = compute_luminance(view_out, sun_dir);
+            luminance += direct_light_from_sun(ray_direction, view_out, sun_dir);
+            let sky_exposure = 1.0 / 120000.0 * 2;
+
+            color = luminance * sky_exposure * constants.sun_color.xyz * constants.sun_intensity;
         }
         default: {
             color = light(normal, ray_origin, ray_direction, vec3<f32>(1.0, 0.0, 0.0), 0.5);
         }
     }
+
+    color *= constants.exposure;
 
     textureStore(output_texture, vec2<i32>(pixelCoord), vec4(color, 1.0));
 }
@@ -100,16 +113,16 @@ fn hash33(p: vec3<f32>) -> vec3<f32> {
 
 
 fn get_sky(ray_direction: vec3<f32>) -> vec3<f32> {
-    let cosTheta = dot(ray_direction, normalize(constants.sun_dir));
+    let cosTheta = dot(ray_direction, normalize(constants.sun_dir.xyz));
     let scatter = pow(1.0 - cosTheta, 0.5);
     let skyColor = mix(vec3(0.2,0.4,0.8), vec3(1.0,0.6,0.2), scatter);
-    return skyColor;
+    return skyColor * 1.2;
 }
 
 fn get_sun(ray_direction: vec3<f32>) -> vec3<f32>
 {
-    let sunAmount = pow(clamp(dot(ray_direction, normalize(constants.sun_dir)), 0.0, 1.0), 20);
-    return vec3(1.0,0.6,0.05) * sunAmount;
+    let sunAmount = pow(clamp(dot(ray_direction, normalize(constants.sun_dir.xyz)), 0.0, 1.0), 20);
+    return vec3(1.0,0.6,0.05) * sunAmount * constants.sun_intensity;
 }
 
 fn disney_diffuse(
@@ -121,7 +134,7 @@ fn disney_diffuse(
 
     let N = normal;
     let V = view_dir;
-    let L = normalize(constants.sun_dir);
+    let L = normalize(constants.sun_dir.xyz);
     let H = normalize(L + V);
 
     let cos_theta_l = max(dot(N, L), 0.0);
@@ -146,17 +159,17 @@ fn light(
     roughness: f32,
 ) -> vec3<f32> {
      let diffuse = disney_diffuse(normal, -ray_dir, base_color, roughness);
-     let light_dir = normalize(constants.sun_dir);
+     let light_dir = normalize(constants.sun_dir.xyz);
      let ambient = 0.3;
      let shadow = soft_shadow(ray_origin + normal * 0.01, light_dir, 0.01, 50, 32);
-     return ambient+diffuse * constants.sun_color * shadow;
+     return ambient+diffuse * (constants.sun_color.xyz * constants.sun_intensity) * shadow;
 }
 
 fn soft_shadow(ray_origin: vec3<f32>, ray_dir: vec3<f32>, mint: f32, maxt: f32, k: f32) -> f32 {
     var res = 1.0;
     var t = mint;
 
-    for(var i=0; i<256 && t < maxt; i++) {
+    for(var i=0; i<64 && t < maxt; i++) {
         let h = map(ray_origin + ray_dir*t).res;
         if (h<0.001) {return 0.0;}
         res = min(res, k*h/t);
@@ -168,13 +181,11 @@ fn soft_shadow(ray_origin: vec3<f32>, ray_dir: vec3<f32>, mint: f32, maxt: f32, 
 
 
 fn map(new_ray_position: vec3<f32>) -> SdfData {
-    var res = SdfData(sdSphere(new_ray_position, 0.1), 0);
+    var res = SdfData(new_ray_position.y + 0.75, -1);
     for (var i = 0u; i < constants.objects_count; i = i + 1u) {
         var object = objects[i];
         res = sdf_union(res, SdfData(sdSphere(new_ray_position - object.position.xyz, object.position.w), object.material));
     }
-    res = sdf_union(res, SdfData(infinite_cubes(new_ray_position), 0));
-
     let ground = new_ray_position.y + 0.75;
     res = sdf_union(SdfData(ground, 0), res);
     return res;
@@ -238,4 +249,123 @@ fn rot2d(angle: f32) -> mat2x2<f32> {
     let sin = sin(angle);
     let cos = cos(angle);
     return mat2x2<f32>(cos, -sin, sin, cos);
+}
+
+//https://cpp-rendering.io/sky-and-atmosphere-rendering/
+
+const Hr = 8000;
+const Hm = 1200;
+const Ho = 8000;
+
+const rayleigh = vec3(5.8, 13.5, 33.1) * 1e-6;
+const mie = vec3(21, 21, 21) * 1e-6;
+const ozone = vec3(3.426, 8.298, 0.356) * 0.06 * 1e-5;
+const radiusEarth = 6360e3;
+const radiusAtmo = 6420e3;
+const ZenithH = radiusAtmo - radiusEarth;
+const origin_view = vec3(0, radiusEarth + 1, 0);
+const originH = origin_view.y - radiusEarth;
+const STEPS = 8;
+
+const radius_size = radians(0.53 / 2.0) * 10;
+const sun_solid_angle = 2 * PI * (1 - cos(radius_size));
+
+//vec3 TrZenith = transmittance(origin_view, vec3(0, radiusEarth + ZenithH, 0));
+const TrZenith = exp(-(rayleigh * Hr * (exp(-originH / Hr) - exp(-ZenithH / Hr)) +
+                            mie * Hm * (exp(-originH / Hm) - exp(-ZenithH / Hm)) +
+                            ozone * Ho * (exp(-originH / Ho) - exp(-ZenithH / Ho))));
+
+const illuminanceGround = 120000 * (vec3(1.0, 1.0, 1.0));
+const L_outerspace = (illuminanceGround / sun_solid_angle) / TrZenith;
+
+fn compute_luminance(out_atmosphere: vec3<f32>, sun_dir: vec3<f32>) -> vec3<f32> {
+    let ds = (out_atmosphere - origin_view) / STEPS;
+    let direction = normalize(ds);
+    var acc = vec3(0.0);
+
+    for (var i = 0.0; i < STEPS; i+=1.0) {
+        let s = origin_view + (i + 0.5) * ds;
+        acc += transmittance(origin_view, s) * j(s, direction, sun_dir);
+    }
+
+    return acc * length(ds);
+}
+
+fn intersectRaySphereFromInside(rayOrigin: vec3<f32>, rayDir: vec3<f32>, radius: f32) -> f32 {
+    let b = dot(rayOrigin, rayDir);
+    let c = dot(rayOrigin, rayOrigin) - radius * radius;
+    let discriminant = b * b - c;
+    let t = -b + sqrt(discriminant);
+    return t;
+}
+
+fn j(position: vec3<f32>, view_dir: vec3<f32>, sun_dir: vec3<f32>) -> vec3<f32> {
+    let distance_out_atmosphere =
+        intersectRaySphereFromInside(position, sun_dir, radiusAtmo);
+    let out_atmosphere = position + sun_dir * distance_out_atmosphere;
+
+    let trToSun = transmittance(position, out_atmosphere);
+    let rayleigh_diffusion = sigma_s_rayleigh(position) * rayleigh_phase(view_dir, sun_dir);
+    let mie_diffusion = sigma_s_mie(position) * mie_phase(view_dir, sun_dir);
+
+    return L_outerspace * trToSun * sun_solid_angle * (rayleigh_diffusion + mie_diffusion);
+}
+
+fn rayleigh_phase(view_dir: vec3<f32>, sun_dir: vec3<f32>) -> f32 {
+    let mu = dot(view_dir, sun_dir);
+    return (3.0 / (16.0 * PI)) * (1.f + mu * mu);
+}
+
+fn mie_phase(view_dir: vec3<f32>, sun_dir: vec3<f32>) -> f32 {
+    let mu = dot(view_dir, sun_dir);
+    let g = 0.76;
+    let denom = 1.0 + g * g - 2.0 * g * mu;
+    return (1.0 - g * g) / (4.0 * PI * pow(denom, 1.5));
+}
+
+fn sigma_s_rayleigh(position: vec3<f32>) -> vec3<f32> {
+    let h = length(position) - radiusEarth;
+    return rayleigh * exp(-h / Hr);
+}
+
+fn sigma_s_mie(position: vec3<f32>) -> vec3<f32> {
+    let h = length(position) - radiusEarth;
+    return mie * exp(-h / Hm);
+}
+
+fn sigma_a_ozone(position: vec3<f32>) -> vec3<f32> {
+    let h = length(position) - radiusEarth;
+    return ozone * exp(-h / Ho);
+}
+
+fn sigma_t(position: vec3<f32>) -> vec3<f32> {
+    return sigma_s_rayleigh(position) +
+           1.11 * sigma_s_mie(position) +
+           sigma_a_ozone(position);
+}
+
+fn integrate_sigma_t(from_vec: vec3<f32>, to_vec: vec3<f32>) -> vec3<f32> {
+    let ds = (to_vec - from_vec) / f32(STEPS);
+    var accumulation = vec3<f32>(0, 0, 0);
+
+    for (var i = 0.0; i < STEPS; i+=1.0) {
+        let s = from_vec + (i + 0.5) * ds;
+        accumulation += sigma_t(s);
+    }
+
+    return accumulation * length(ds);
+}
+
+fn transmittance(from_vec: vec3<f32>, to_vec: vec3<f32>) -> vec3<f32> {
+    let integral = integrate_sigma_t(from_vec, to_vec);
+    return exp(-integral);
+}
+
+fn direct_light_from_sun(direction: vec3<f32>, out_atmosphere: vec3<f32>, sun_dir: vec3<f32>) -> vec3<f32> {
+    let cos_theta = dot(direction, sun_dir);
+
+    let angle = acos(cos_theta);
+    let disk = 1.0 - smoothstep(radius_size * 0.95, radius_size * 1.05, angle);
+
+    return disk * L_outerspace * transmittance(origin_view, out_atmosphere);
 }

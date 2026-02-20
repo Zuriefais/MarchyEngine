@@ -56,7 +56,7 @@ impl BindGroupLayouts {
                         visibility: wgpu::ShaderStages::COMPUTE,
                         ty: wgpu::BindingType::StorageTexture {
                             access: wgpu::StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
+                            format: TextureFormat::Rgba16Float,
                             view_dimension: wgpu::TextureViewDimension::D2,
                         },
                         count: None,

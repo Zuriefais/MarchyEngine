@@ -3,7 +3,7 @@ use std::{num::NonZero, ops::Range, time::SystemTime};
 use bytemuck::{NoUninit, Pod, Zeroable, bytes_of, cast_slice};
 use egui::{Response, Ui};
 use egui_probe::{EguiProbe, Style};
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec3A, Vec4};
 use wgpu::{
     BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, Buffer, BufferAddress, BufferBinding,
@@ -13,22 +13,26 @@ use wgpu::{
 
 use crate::texture_manager::{TextureManager, textures::EngineTexture};
 
-#[repr(C, align(16))]
-#[derive(PartialEq, Debug, Clone, Copy, Zeroable, Pod)]
-struct RaymarchingConstants {
-    texture_size: [f32; 2], //8 bytes
-    time: f32,              //4 bytes
-    rotation: f32,          //4 bytes
-    ray_origin: Vec3,       //12 bytes
-    pad0: f32,
-    FOV: f32,           //4 bytes
-    objects_count: u32, //4 bytes
-    yz_rotation: f32,   //4 bytes
-    pad1: f32,          //4 bytes
-    sun_dir: Vec3,      //12 bytes
-    pad2: f32,          //4 bytes
-    sun_color: Vec3,    //12 bytes
-    pad3: f32,          //4 bytes
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct RaymarchingConstants {
+    pub texture_size: [f32; 2],
+    pub time: f32,
+    pub rotation: f32,
+
+    pub ray_origin: Vec4,
+
+    pub fov: f32,
+    pub objects_count: u32,
+    pub yz_rotation: f32,
+    pub _pad0: f32,
+
+    pub sun_dir: Vec4,
+    pub sun_color: Vec4,
+
+    pub sun_intensity: f32,
+    pub exposure: f32,
+    pub _pad1: Vec2,
 }
 
 #[repr(C)]
@@ -74,7 +78,12 @@ pub struct RaymarchingRenderComputePass {
 
 impl RaymarchingRenderComputePass {
     pub fn new(device: &Device, queue: &Queue, texture_manager: &mut TextureManager) -> Self {
-        println!("{}", std::mem::size_of::<RaymarchingObject>());
+        println!("{}", std::mem::size_of::<Vec3>());
+        println!("{}", std::mem::align_of::<Vec3>());
+        println!("{}", std::mem::size_of::<RaymarchingConstants>());
+        println!("{}", std::mem::align_of::<RaymarchingConstants>());
+        println!("{}", std::mem::size_of::<[f32; 4]>());
+        println!("{}", std::mem::align_of::<[f32; 4]>());
 
         use std::fs;
 
@@ -170,10 +179,10 @@ impl RaymarchingRenderComputePass {
         ray_origin: Vec3,
         objects: &[RaymarchingObject],
         yz_rotation: f32,
-
         sun_dir: Vec3,
-
         sun_color: Vec3,
+        sun_intensity: f32,
+        exposure: f32,
     ) {
         let required_size = (size_of::<RaymarchingObject>() * objects.len()) as u64;
         if required_size < self.storage_buffer.size() {
@@ -194,17 +203,21 @@ impl RaymarchingRenderComputePass {
             bytes_of(&RaymarchingConstants {
                 texture_size: [width as f32, height as f32],
                 time: self.current_time.elapsed().unwrap().as_secs_f32(),
-                ray_origin,
                 rotation: rotation,
-                FOV,
+                ray_origin: ray_origin.extend(0.0),
+                fov: FOV,
                 objects_count: objects.len() as u32,
                 yz_rotation,
-                sun_dir,
-                sun_color,
-                pad0: 0.0,
-                pad2: 1.0,
-                pad1: 1.0,
-                pad3: 0.0,
+
+                sun_dir: sun_dir.extend(0.0),
+
+                sun_color: sun_color.extend(0.0),
+
+                sun_intensity,
+
+                exposure,
+                _pad0: 0.0,
+                _pad1: Vec2::ZERO,
             }),
         );
         compute_pass.set_bind_group(
@@ -212,12 +225,12 @@ impl RaymarchingRenderComputePass {
             texture_manager
                 .get_texture("Raymarching")
                 .unwrap()
-                .compute_mut_group_f32(),
+                .compute_mut_group_f16(),
             &[],
         );
         compute_pass.set_bind_group(1, Some(&self.storage_bind_group), &[]);
-        let wg_x = (width + 15) / 32;
-        let wg_y = (height + 15) / 32;
+        let wg_x = (width + 15) / 16;
+        let wg_y = (height + 15) / 16;
         compute_pass.dispatch_workgroups(wg_x, wg_y, 1);
     }
 }
